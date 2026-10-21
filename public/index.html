@@ -6,7 +6,6 @@
 <title>ระบบส่งงาน</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="config.js"></script>
 <style>
 :root{--bg:#F4F6F8;--card:#FFFFFF;--text:#1E2329;--muted:#6B7280;--line:#E5E7EB;--primary:#06C755;--danger:#C0392B;--warn:#B9770E;--radius:14px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -97,9 +96,8 @@ textarea{resize:vertical;min-height:80px}
 <div id="overlay"><div class="spinner"></div><div id="overlayText">กำลังโหลด...</div></div>
 <div id="toast"></div>
 <script>
-const CFG = window.APP_CONFIG || {};
-const LIFF_ID = CFG.LIFF_ID || '';
-const API_URL = CFG.API_URL || '';
+let LIFF_ID = '';
+let API_URL = '';
 const MAX_IMAGES = 10;
 const MAX_DOCS = 5;
 const MAX_DOC_MB = 8;
@@ -166,9 +164,14 @@ function handleErr(e) {
 }
 
 async function main() {
+  try {
+    const c = await (await fetch('/api/config', { cache: 'no-store' })).json();
+    LIFF_ID = c.LIFF_ID || '';
+    API_URL = c.API_URL || '';
+  } catch (e) {}
   if (!LIFF_ID || !API_URL) {
     overlay(false);
-    $('#screen').innerHTML = '<div class="card warn">ยังไม่ได้ตั้งค่า LIFF_ID / API_URL ในไฟล์ public/config.js</div>';
+    $('#screen').innerHTML = '<div class="card warn">ยังไม่ได้ตั้ง Environment Variables LIFF_ID / API_URL ใน Vercel (ตั้งแล้วต้อง Redeploy)</div>';
     return;
   }
   try {

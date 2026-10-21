@@ -5,11 +5,13 @@
 ```
 line-work-request/
 ├── public/
-│   ├── index.html   หน้า LIFF (โฮสต์บน Vercel)
-│   └── config.js    ใส่ LIFF_ID กับ API_URL ที่นี่
+│   └── index.html   หน้า LIFF (โฮสต์บน Vercel)
+├── api/
+│   └── config.js    serverless function ส่งค่า LIFF_ID / API_URL จาก Environment Variables ให้หน้าเว็บ
 ├── gas/
 │   └── Code.gs      Apps Script: API + webhook + push LINE (วางใน Apps Script ที่ผูกกับ Sheet)
 ├── vercel.json
+├── .env.example
 └── README.md
 ```
 
@@ -58,14 +60,7 @@ line-work-request/
 | `LOGIN_CHANNEL_ID` | Channel ID ของ LINE Login channel (ใช้ตรวจสอบตัวตน) |
 
 ### 4. GitHub + Vercel
-1. แก้ `public/config.js`
-   ```js
-   window.APP_CONFIG = {
-     LIFF_ID: '1234567890-AbCdEfGh',
-     API_URL: 'https://script.google.com/macros/s/XXXX/exec'
-   };
-   ```
-2. Push ขึ้น GitHub
+1. Push ขึ้น GitHub
    ```bash
    git init
    git add .
@@ -74,8 +69,14 @@ line-work-request/
    git remote add origin https://github.com/<user>/line-work-request.git
    git push -u origin main
    ```
-3. [vercel.com](https://vercel.com) → **Add New → Project** → Import repo นี้ → Framework **Other**, Root Directory ว่าง, Output Directory `public` → **Deploy** → ได้ URL เช่น `https://line-work-request.vercel.app`
-4. กลับไป LINE Login channel → LIFF → แก้ **Endpoint URL** = URL ของ Vercel
+2. [vercel.com](https://vercel.com) → **Add New → Project** → Import repo นี้ → Framework **Other** (ไม่ต้องตั้ง Build/Output)
+3. ก่อนกด Deploy เปิด **Environment Variables** ใส่ 2 ตัว (หรือตั้งทีหลังที่ Settings → Environment Variables แล้ว **Redeploy**)
+   | Name | Value |
+   |---|---|
+   | `LIFF_ID` | LIFF ID จาก LINE Login channel |
+   | `API_URL` | Web app URL ของ GAS (ลงท้าย `/exec`) |
+4. **Deploy** → ได้ URL เช่น `https://line-work-request.vercel.app` (เปิด `/api/config` ต้องเห็นค่า 2 ตัวนี้)
+5. กลับไป LINE Login channel → LIFF → แก้ **Endpoint URL** = URL ของ Vercel
 
 ### 5. Rich Menu (OA Manager)
 - ปุ่ม "ส่งงาน" → Action **Link** → `https://liff.line.me/<LIFF_ID>`
@@ -86,7 +87,8 @@ line-work-request/
 - พนักงานกด Rich Menu → ส่งงาน
 
 > แก้ `gas/Code.gs` → วางใน Apps Script → **Deploy → Manage deployments → ✏️ → New version** (URL เดิม)
-> แก้ `public/*` → push ขึ้น GitHub → Vercel deploy ให้อัตโนมัติ
+> แก้ `public/*` หรือ `api/*` → push ขึ้น GitHub → Vercel deploy ให้อัตโนมัติ
+> เปลี่ยนค่า Environment Variables → ต้องกด **Redeploy** ใน Vercel
 
 ---
 
@@ -137,7 +139,7 @@ Body ที่มี `events` ถือเป็น webhook จาก LINE
 ## แก้ปัญหา
 | อาการ | สาเหตุ |
 |---|---|
-| "ยังไม่ได้ตั้งค่า LIFF_ID / API_URL" | ยังไม่แก้ `public/config.js` หรือยังไม่ push |
+| "ยังไม่ได้ตั้ง Environment Variables" | ยังไม่ใส่ `LIFF_ID` / `API_URL` ใน Vercel หรือใส่แล้วยังไม่ Redeploy (เช็กที่ `<url>/api/config`) |
 | "เริ่มระบบไม่สำเร็จ: API 4xx/5xx" | `API_URL` ผิด หรือ GAS deploy ไม่ใช่ Anyone |
 | เด้งเข้าสู่ระบบซ้ำๆ | `LOGIN_CHANNEL_ID` ไม่ตรง channel ที่สร้าง LIFF → ดู Log แถว `token_error` |
 | โหลดวน / LIFF init ล้มเหลว | LIFF ID ผิด, Endpoint URL ไม่ตรง Vercel, channel ยัง Developing |
