@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบส่งงาน</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="config.js"></script>
+<style>
+:root{--bg:#F4F6F8;--card:#FFFFFF;--text:#1E2329;--muted:#6B7280;--line:#E5E7EB;--primary:#06C755;--danger:#C0392B;--warn:#B9770E;--radius:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Noto Sans Thai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px;-webkit-tap-highlight-color:transparent}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;font-weight:700;flex:1;cursor:pointer}
+header .user{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+header img{width:30px;height:30px;border-radius:50%;background:var(--line)}
+main{padding:16px;max-width:560px;margin:0 auto;padding-bottom:40px}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:12px}
+.card.warn{background:#FFF7E6;border:1px solid #F5D38C;color:#7A4E00}
+.card.err{background:#FDECEA;border:1px solid #F5B5AE;color:#8A1C10}
+.card.info{background:#EAF3FB;border:1px solid #B9D6EE;color:#1F4E79}
+.menu{display:flex;flex-direction:column;gap:12px}
+.menu-item{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:var(--radius);padding:18px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:6px solid var(--c);cursor:pointer;transition:transform .08s}
+.menu-item:active{transform:scale(.98)}
+.menu-item .ic{font-size:30px;width:44px;text-align:center}
+.menu-item .t{font-size:17px;font-weight:700}
+.menu-item .d{font-size:13px;color:var(--muted);margin-top:2px}
+.menu-item .arrow{margin-left:auto;color:#C4C8CE;font-size:20px}
+.menu-item.small{padding:13px 16px}
+.menu-item.small .ic{font-size:22px}
+.menu-item.small .t{font-size:15px}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.back{background:none;border:none;font-size:15px;color:var(--muted);padding:6px 4px;cursor:pointer;font-family:inherit}
+.title{font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap}
+.badge.pending{background:var(--warn)}
+.badge.ok{background:#1F7A4D}
+.badge.no{background:var(--danger)}
+.field{display:block;margin-bottom:14px}
+.lbl{display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px}
+.req{color:var(--danger);margin-left:3px}
+input,textarea,select{width:100%;font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid #D1D5DB;border-radius:10px;background:#fff;color:var(--text);outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(6,199,85,.15)}
+textarea{resize:vertical;min-height:80px}
+.section-title{font-size:14px;font-weight:700;margin:18px 0 8px;display:flex;justify-content:space-between;align-items:center}
+.section-title small{font-weight:400;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.thumb{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--line);display:block}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .x{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;font-size:14px;line-height:24px;text-align:center;cursor:pointer}
+.list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.file{display:flex;align-items:center;gap:10px;background:#F9FAFB;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.file .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file .s{color:var(--muted);font-size:12px}
+.file .x{background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer}
+.file a{color:#1F5F9E;text-decoration:none}
+.addbtn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border:1px dashed #9CA3AF;border-radius:10px;font-size:14px;color:#374151;cursor:pointer;background:#fff}
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;margin-top:10px;text-align:center;text-decoration:none}
+.btn.primary{background:var(--primary);color:#fff}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.ghost{background:#fff;color:var(--text);border:1px solid #D1D5DB}
+.btn:disabled{opacity:.6}
+.kv{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.kv:last-child{border-bottom:none}
+.kv .k{flex:0 0 38%;color:var(--muted);font-size:13px}
+.kv .v{flex:1;white-space:pre-wrap;word-break:break-word}
+.doc-row{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:8px;cursor:pointer;border-left:5px solid var(--c)}
+.doc-row .ic{font-size:22px}
+.doc-row .m{flex:1;min-width:0}
+.doc-row .id{font-size:13px;font-weight:700}
+.doc-row .h{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-row .w{font-size:12px;color:var(--muted)}
+.result{text-align:center;padding:30px 10px}
+.result .big{font-size:56px;margin-bottom:10px}
+.result h2{font-size:20px;margin-bottom:6px}
+.result .id{font-family:ui-monospace,monospace;font-size:18px;background:#F3F4F6;display:inline-block;padding:6px 14px;border-radius:8px;margin:10px 0 16px}
+.result p{color:var(--muted);font-size:14px}
+.row{display:flex;gap:10px}
+.row .btn{margin:0}
+#overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:50;color:var(--muted)}
+.spinner{width:38px;height:38px;border:4px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1E2329;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;z-index:60;max-width:90%;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.link{color:var(--muted);font-size:13px;text-align:center;margin-top:20px;cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<header>
+  <h1 onclick="showHome()">ระบบส่งงาน</h1>
+  <div class="user"><span id="who"></span><img id="avatar" alt=""></div>
+</header>
+<main id="screen"></main>
+<div id="overlay"><div class="spinner"></div><div id="overlayText">กำลังโหลด...</div></div>
+<div id="toast"></div>
+<script>
+const CFG = window.APP_CONFIG || {};
+const LIFF_ID = CFG.LIFF_ID || '';
+const API_URL = CFG.API_URL || '';
+const MAX_IMAGES = 10;
+const MAX_DOCS = 5;
+const MAX_DOC_MB = 8;
+
+let FORMS = {};
+let MANAGER_SET = false;
+let profile = null;
+let idToken = '';
+let current = null;
+let images = [];
+let docs = [];
+let refDoc = '';
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
+
+function overlay(on, text) {
+  $('#overlay').style.display = on ? 'flex' : 'none';
+  if (text) $('#overlayText').textContent = text;
+}
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.remove('show'), 2800);
+}
+async function api(action, data) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action, idToken }, data || {}))
+  });
+  if (!res.ok) throw new Error('API ' + res.status);
+  const r = await res.json();
+  if (r && r.error === 'TOKEN_INVALID') throw new Error('TOKEN_INVALID');
+  return r;
+}
+function queryFromLocation() {
+  const out = {};
+  try {
+    const p = new URLSearchParams(location.search);
+    p.forEach((v, k) => { out[k] = v; });
+    const st = p.get('liff.state');
+    if (st) new URLSearchParams(st.replace(/^\?/, '')).forEach((v, k) => { out[k] = v; });
+  } catch (e) {}
+  return out;
+}
+function openExternal(url) {
+  if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url, external: true });
+  else window.open(url, '_blank');
+}
+function scrollTop() { window.scrollTo(0, 0); }
+function handleErr(e) {
+  const m = e && (e.message || String(e));
+  if (m && m.indexOf('TOKEN_INVALID') >= 0) {
+    overlay(true, 'กำลังเข้าสู่ระบบใหม่...');
+    try { liff.logout(); } catch (x) {}
+    liff.login({ redirectUri: location.href });
+    return true;
+  }
+  return false;
+}
+
+async function main() {
+  if (!LIFF_ID || !API_URL) {
+    overlay(false);
+    $('#screen').innerHTML = '<div class="card warn">ยังไม่ได้ตั้งค่า LIFF_ID / API_URL ในไฟล์ public/config.js</div>';
+    return;
+  }
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+    idToken = liff.getIDToken() || '';
+    if (!idToken) { try { liff.logout(); } catch (x) {} liff.login({ redirectUri: location.href }); return; }
+    const [cfg, me] = await Promise.all([api('config'), api('whoAmI')]);
+    FORMS = cfg.forms || {};
+    MANAGER_SET = !!cfg.managerSet;
+    profile = me.user;
+  } catch (e) {
+    if (handleErr(e)) return;
+    overlay(false);
+    $('#screen').innerHTML = '<div class="card err">เริ่มระบบไม่สำเร็จ: ' + esc(e.message || e) + '</div>';
+    return;
+  }
+  $('#who').textContent = profile.displayName || '';
+  if (profile.pictureUrl) $('#avatar').src = profile.pictureUrl;
+  await route(queryFromLocation());
+  overlay(false);
+}
+
+async function route(q) {
+  try {
+    if (q.view) await openDetail(q.view);
+    else if (q.resubmit) await openResubmit(q.resubmit);
+    else if (q.page === 'pending') await showPending();
+    else if (q.page === 'mine') await showMine();
+    else showHome();
+  } catch (e) {
+    if (!handleErr(e)) $('#screen').innerHTML = '<div class="card err">เกิดข้อผิดพลาด: ' + esc(e.message || e) + '</div>';
+  }
+}
+
+function showHome() {
+  current = null; images = []; docs = []; refDoc = '';
+  const items = Object.keys(FORMS).map(k => {
+    const f = FORMS[k];
+    return `<div class="menu-item" style="--c:${f.color}" onclick="showForm('${k}')">
+      <div class="ic">${f.icon}</div>
+      <div><div class="t">${esc(f.title)}</div><div class="d">${esc(f.desc)}</div></div>
+      <div class="arrow">›</div>
+    </div>`;
+  }).join('');
+  $('#screen').innerHTML = `
+    ${MANAGER_SET || profile.isManager ? '' : '<div class="card warn">⚠️ ยังไม่ได้ตั้ง Manager ผู้อนุมัติ ส่งงานได้แต่จะยังไม่มีการแจ้งเตือนไปหาผู้อนุมัติ</div>'}
+    <div class="section-title" style="margin-top:4px">เลือกประเภทฟอร์มที่ต้องการส่ง</div>
+    <div class="menu">${items}</div>
+    <div class="section-title">เมนูอื่น</div>
+    <div class="menu">
+      <div class="menu-item small" style="--c:#6B7280" onclick="showMine()"><div class="ic">🗂️</div><div><div class="t">งานของฉัน</div><div class="d">ดูสถานะงานที่เคยส่ง</div></div><div class="arrow">›</div></div>
+      ${profile.isManager ? '<div class="menu-item small" style="--c:#1F7A4D" onclick="showPending()"><div class="ic">✅</div><div><div class="t">รายการรออนุมัติ</div><div class="d">สำหรับผู้อนุมัติ</div></div><div class="arrow">›</div></div>' : ''}
+    </div>
+    <div class="link" onclick="showManagerSetup()">${profile.isManager ? 'คุณเป็นผู้อนุมัติของระบบ' : 'ตั้งค่าผู้อนุมัติ'}</div>`;
+  scrollTop();
+}
+
+function showManagerSetup() {
+  $('#screen').innerHTML = `
+    <div class="topbar"><button class="back" onclick="showHome()">‹ กลับ</button></div>
+    <div class="title" style="margin-bottom:12px">ตั้งค่าผู้อนุมัติ</div>
+    <div class="card">
+      <p style="font-size:14px;color:var(--muted);margin-bottom:12px">ใส่รหัสผู้อนุมัติเพื่อตั้งบัญชี LINE ของคุณ (${esc(profile.displayName)}) เป็น Manager การแจ้งเตือนงานใหม่จะส่งมาที่แชท LINE ของคุณ<br><br>หรือพิมพ์รหัสส่งหาบอทในแชทก็ได้เช่นกัน</p>
+      <label class="field"><span class="lbl">รหัสผู้อนุมัติ</span><input id="mkey" type="password" autocomplete="off" onkeydown="if(event.key==='Enter')registerManager()"></label>
+      <button class="btn primary" onclick="registerManager()">ยืนยัน</button>
+    </div>`;
+}
+async function registerManager() {
+  const key = $('#mkey').value.trim();
+  if (!key) { toast('กรุณาใส่รหัส'); return; }
+  overlay(true, 'กำลังตั้งค่า...');
+  try {
+    const r = await api('registerManager', { key });
+    overlay(false);
+    if (!r.ok) { toast(r.message); return; }
+    profile.isManager = true;
+    toast('ตั้งคุณเป็นผู้อนุมัติแล้ว');
+    showHome();
+  } catch (e) { overlay(false); if (!handleErr(e)) toast('ผิดพลาด: ' + (e.message || e)); }
+}
+
+function fieldHtml(f, val) {
+  const v = val == null ? '' : String(val);
+  const req = f.required ? '<span class="req">*</span>' : '';
+  let input = '';
+  if (f.type === 'textarea') input = `<textarea id="f_${f.key}" rows="3">${esc(v)}</textarea>`;
+  else if (f.type === 'select') input = `<select id="f_${f.key}"><option value="">-- เลือก --</option>${(f.options || []).map(o => `<option value="${esc(o)}"${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  else input = `<input id="f_${f.key}" type="${f.type}" value="${esc(v)}"${f.type === 'number' ? ' inputmode="decimal"' : ''}>`;
+  return `<label class="field"><span class="lbl">${esc(f.label)}${req}</span>${input}</label>`;
+}
+
+function showForm(type, prefill) {
+  current = type; images = []; docs = [];
+  const f = FORMS[type];
+  const vals = Object.assign({}, prefill || {});
+  if (!prefill && !vals[f.fields[0].key]) vals[f.fields[0].key] = profile.displayName || '';
+  $('#screen').innerHTML = `
+    <div class="topbar"><button class="back" onclick="showHome()">‹ กลับ</button></div>
+    <div class="title" style="margin-bottom:12px">${f.icon} ${esc(f.title)}</div>
+    ${refDoc ? `<div class="card warn">✏️ กำลังแก้ไขแล้วส่งใหม่จากเอกสาร <b>${esc(refDoc)}</b> (ระบบจะออกเลขเอกสารใหม่) กรุณาแนบรูป/ไฟล์อีกครั้ง</div>` : ''}
+    <div class="card">
+      ${f.fields.map(x => fieldHtml(x, vals[x.key])).join('')}
+      <div class="section-title">รูปภาพ <small id="imgCount">0/${MAX_IMAGES}</small></div>
+      <div id="imgGrid" class="grid"></div>
+      <label class="addbtn">📷 เพิ่มรูป<input type="file" accept="image/*" multiple hidden onchange="addImages(this)"></label>
+      <div class="hint">รูปจะถูกย่อขนาดอัตโนมัติก่อนส่ง</div>
+      <div class="section-title">${esc(f.docLabel)} <small id="docCount">0/${MAX_DOCS}</small></div>
+      <div id="docList" class="list"></div>
+      <label class="addbtn">📎 แนบไฟล์<input type="file" multiple hidden onchange="addDocs(this)"></label>
+      <div class="hint">ไฟล์ละไม่เกิน ${MAX_DOC_MB} MB</div>
+    </div>
+    <button id="submitBtn" class="btn primary" onclick="submit()">ส่งงาน</button>`;
+  scrollTop();
+}
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const max = 1280;
+      const s = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.round(img.width * s), h = Math.round(img.height * s);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = c.toDataURL('image/jpeg', 0.82);
+      URL.revokeObjectURL(url);
+      resolve({ name: file.name.replace(/\.[^.]+$/, '') + '.jpg', mime: 'image/jpeg', data: dataUrl.split(',')[1], preview: dataUrl });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('อ่านรูปไม่ได้: ' + file.name)); };
+    img.src = url;
+  });
+}
+function readFile(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve({ name: file.name, mime: file.type || 'application/octet-stream', data: String(r.result).split(',')[1], size: file.size });
+    r.onerror = () => reject(new Error('อ่านไฟล์ไม่ได้: ' + file.name));
+    r.readAsDataURL(file);
+  });
+}
+async function addImages(input) {
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  if (images.length + files.length > MAX_IMAGES) { toast('แนบรูปได้สูงสุด ' + MAX_IMAGES + ' รูป'); return; }
+  overlay(true, 'กำลังเตรียมรูป...');
+  for (const f of files) {
+    try { images.push(await compressImage(f)); } catch (e) { toast(e.message); }
+  }
+  overlay(false);
+  renderImages();
+}
+function removeImage(i) { images.splice(i, 1); renderImages(); }
+function renderImages() {
+  $('#imgGrid').innerHTML = images.map((im, i) => `<div class="thumb"><img src="${im.preview}" alt=""><button class="x" onclick="removeImage(${i})">×</button></div>`).join('');
+  $('#imgCount').textContent = images.length + '/' + MAX_IMAGES;
+}
+async function addDocs(input) {
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  if (docs.length + files.length > MAX_DOCS) { toast('แนบไฟล์ได้สูงสุด ' + MAX_DOCS + ' ไฟล์'); return; }
+  overlay(true, 'กำลังอ่านไฟล์...');
+  for (const f of files) {
+    if (f.size > MAX_DOC_MB * 1048576) { toast(f.name + ' ใหญ่เกิน ' + MAX_DOC_MB + ' MB'); continue; }
+    try { docs.push(await readFile(f)); } catch (e) { toast(e.message); }
+  }
+  overlay(false);
+  renderDocs();
+}
+function removeDoc(i) { docs.splice(i, 1); renderDocs(); }
+function renderDocs() {
+  $('#docList').innerHTML = docs.map((d, i) => `<div class="file"><span>📄</span><span class="n">${esc(d.name)}</span><span class="s">${fmtSize(d.size)}</span><button class="x" onclick="removeDoc(${i})">×</button></div>`).join('');
+  $('#docCount').textContent = docs.length + '/' + MAX_DOCS;
+}
+
+async function submit() {
+  const f = FORMS[current];
+  const values = {};
+  for (const x of f.fields) {
+    const el = $('#f_' + x.key);
+    values[x.key] = (el.value || '').trim();
+    if (x.required && !values[x.key]) { toast('กรุณากรอก ' + x.label); el.focus(); return; }
+  }
+  const btn = $('#submitBtn');
+  btn.disabled = true;
+  overlay(true, 'กำลังส่งงาน...');
+  try {
+    const payload = {
+      type: current,
+      ref: refDoc,
+      values,
+      images: images.map(({ name, mime, data }) => ({ name, mime, data })),
+      docs: docs.map(({ name, mime, data }) => ({ name, mime, data }))
+    };
+    const r = await api('submitForm', { payload });
+    if (!r.ok) throw new Error(r.message);
+    showResult(r.docId, r.notified);
+  } catch (e) {
+    if (!handleErr(e)) toast('ส่งไม่สำเร็จ: ' + (e.message || e));
+    btn.disabled = false;
+  }
+  overlay(false);
+}
+
+function showResult(docId, notified) {
+  $('#screen').innerHTML = `
+    <div class="card result">
+      <div class="big">✅</div>
+      <h2>ส่งงานเรียบร้อย</h2>
+      <div class="id">${esc(docId)}</div>
+      <p>${notified ? 'ระบบแจ้งเตือน Manager แล้ว ผลการอนุมัติจะส่งมาทาง LINE ของคุณ' : 'บันทึกข้อมูลแล้ว แต่ยังไม่ได้ตั้ง Manager จึงยังไม่มีการแจ้งเตือน'}</p>
+    </div>
+    <button class="btn ghost" onclick="openDetail('${esc(docId)}')">ดูรายละเอียด</button>
+    <button class="btn ghost" onclick="showHome()">ส่งงานอื่นต่อ</button>
+    <button class="btn primary" onclick="closeApp()">ปิดหน้าต่าง</button>`;
+  scrollTop();
+}
+function closeApp() {
+  if (window.liff && liff.isInClient && liff.isInClient()) liff.closeWindow();
+  else showHome();
+}
+
+function statusBadge(s) {
+  const cls = s === 'อนุมัติ' ? 'ok' : s === 'ปฏิเสธ' ? 'no' : 'pending';
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
+}
+function docRow(d) {
+  return `<div class="doc-row" style="--c:${d.color}" onclick="openDetail('${esc(d.docId)}')">
+    <div class="ic">${d.icon}</div>
+    <div class="m"><div class="id">${esc(d.docId)} <span style="font-weight:400;color:var(--muted)">• ${esc(d.title)}</span></div><div class="h">${esc(d.headline || '-')}</div><div class="w">${esc(d.displayName)} • ${esc(d.submittedAt)}</div></div>
+    ${statusBadge(d.status)}
+  </div>`;
+}
+async function showMine() {
+  overlay(true, 'กำลังโหลด...');
+  try {
+    const r = await api('getMyDocs');
+    overlay(false);
+    $('#screen').innerHTML = `
+      <div class="topbar"><button class="back" onclick="showHome()">‹ กลับ</button></div>
+      <div class="title" style="margin-bottom:12px">🗂️ งานของฉัน</div>
+      ${r.docs.length ? r.docs.map(docRow).join('') : '<div class="card info">ยังไม่เคยส่งงาน</div>'}`;
+    scrollTop();
+  } catch (e) { overlay(false); if (!handleErr(e)) toast('ผิดพลาด: ' + (e.message || e)); }
+}
+async function showPending() {
+  overlay(true, 'กำลังโหลด...');
+  try {
+    const r = await api('getPendingDocs');
+    overlay(false);
+    if (!r.ok) { toast(r.message); showHome(); return; }
+    $('#screen').innerHTML = `
+      <div class="topbar"><button class="back" onclick="showHome()">‹ กลับ</button></div>
+      <div class="title" style="margin-bottom:12px">✅ รายการรออนุมัติ <small style="font-size:14px;font-weight:400;color:var(--muted)">${r.docs.length} รายการ</small></div>
+      ${r.docs.length ? r.docs.map(docRow).join('') : '<div class="card info">ไม่มีงานรออนุมัติ</div>'}
+      <div class="link" onclick="showRecent()">ดูรายการล่าสุดทั้งหมด</div>`;
+    scrollTop();
+  } catch (e) { overlay(false); if (!handleErr(e)) toast('ผิดพลาด: ' + (e.message || e)); }
+}
+async function showRecent() {
+  overlay(true, 'กำลังโหลด...');
+  try {
+    const r = await api('getRecentDocs');
+    overlay(false);
+    if (!r.ok) { toast(r.message); showHome(); return; }
+    $('#screen').innerHTML = `
+      <div class="topbar"><button class="back" onclick="showPending()">‹ กลับ</button></div>
+      <div class="title" style="margin-bottom:12px">🗂️ รายการล่าสุด</div>
+      ${r.docs.length ? r.docs.map(docRow).join('') : '<div class="card info">ยังไม่มีเอกสาร</div>'}`;
+    scrollTop();
+  } catch (e) { overlay(false); if (!handleErr(e)) toast('ผิดพลาด: ' + (e.message || e)); }
+}
+
+async function openDetail(id) {
+  overlay(true, 'กำลังโหลดเอกสาร...');
+  let r;
+  try { r = await api('getDocument', { docId: id }); } catch (e) { overlay(false); if (handleErr(e)) return; r = { ok: false, message: e.message || String(e) }; }
+  overlay(false);
+  if (!r.ok) {
+    $('#screen').innerHTML = `<div class="topbar"><button class="back" onclick="showHome()">‹ หน้าหลัก</button></div><div class="card err">${esc(r.message)}</div>`;
+    return;
+  }
+  renderDetail(r.doc, r.isManager);
+}
+function renderDetail(d, isManager) {
+  const kvs = d.fields.map(x => `<div class="kv"><div class="k">${esc(x.label)}</div><div class="v">${esc(x.value || '-')}</div></div>`).join('');
+  const imgs = d.images.length
+    ? `<div class="grid">${d.images.map(im => `<div class="thumb" onclick="openExternal('${esc(im.url)}')"><img src="${esc(im.thumb)}" alt="${esc(im.name)}" loading="lazy"></div>`).join('')}</div>`
+    : '<div class="hint">ไม่มีรูปภาพ</div>';
+  const files = d.docs.length
+    ? `<div class="list">${d.docs.map(f => `<div class="file"><span>📄</span><span class="n"><a href="#" onclick="openExternal('${esc(f.url)}');return false">${esc(f.name)}</a></span></div>`).join('')}</div>`
+    : '<div class="hint">ไม่มีเอกสารแนบ</div>';
+  const decided = d.status !== 'รออนุมัติ'
+    ? `<div class="kv"><div class="k">ผู้ตัดสิน</div><div class="v">${esc(d.decidedBy || '-')}</div></div>
+       <div class="kv"><div class="k">วันที่ตัดสิน</div><div class="v">${esc(d.decidedAt || '-')}</div></div>
+       ${d.status === 'ปฏิเสธ' ? `<div class="kv"><div class="k">เหตุผลปฏิเสธ</div><div class="v" style="color:var(--danger)">${esc(d.reason || '-')}</div></div>` : ''}`
+    : '';
+  const canResubmit = d.status === 'ปฏิเสธ' && d.userId === profile.userId;
+  const canDecide = isManager && d.status === 'รออนุมัติ';
+  $('#screen').innerHTML = `
+    <div class="topbar"><button class="back" onclick="showHome()">‹ หน้าหลัก</button></div>
+    <div class="title">${d.icon} ${esc(d.title)} ${statusBadge(d.status)}</div>
+    <div class="hint" style="font-size:14px;margin:4px 0 12px">${esc(d.docId)}</div>
+    <div class="card">
+      <div class="kv"><div class="k">ผู้ส่ง</div><div class="v">${esc(d.displayName)}</div></div>
+      <div class="kv"><div class="k">วันที่ส่ง</div><div class="v">${esc(d.submittedAt)}</div></div>
+      ${d.ref ? `<div class="kv"><div class="k">ส่งใหม่จาก</div><div class="v">${esc(d.ref)}</div></div>` : ''}
+      ${kvs}
+      ${decided}
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-top:0">รูปภาพ <small>${d.images.length} รูป</small></div>
+      ${imgs}
+      <div class="section-title">เอกสารแนบ <small>${d.docs.length} ไฟล์</small></div>
+      ${files}
+      ${d.folderUrl ? `<button class="btn ghost" onclick="openExternal('${esc(d.folderUrl)}')">เปิดโฟลเดอร์ใน Google Drive</button>` : ''}
+    </div>
+    ${canDecide ? `<div class="card">
+      <label class="field"><span class="lbl">เหตุผล (จำเป็นเมื่อปฏิเสธ)</span><textarea id="reason" rows="2"></textarea></label>
+      <div class="row">
+        <button class="btn danger" onclick="decide('${esc(d.docId)}','reject')">ปฏิเสธ</button>
+        <button class="btn primary" onclick="decide('${esc(d.docId)}','approve')">อนุมัติ</button>
+      </div>
+    </div>` : ''}
+    ${canResubmit ? `<button class="btn primary" onclick="openResubmit('${esc(d.docId)}')">✏️ แก้ไขแล้วส่งใหม่</button>` : ''}`;
+  scrollTop();
+}
+
+async function decide(id, decision) {
+  const reason = ($('#reason') ? $('#reason').value : '').trim();
+  if (decision === 'reject' && !reason) { toast('กรุณาระบุเหตุผลการปฏิเสธ'); $('#reason').focus(); return; }
+  if (!confirm((decision === 'approve' ? 'ยืนยันอนุมัติ ' : 'ยืนยันปฏิเสธ ') + id + ' ?')) return;
+  overlay(true, 'กำลังบันทึก...');
+  try {
+    const r = await api('decide', { docId: id, decision, reason });
+    overlay(false);
+    if (!r.ok) { toast(r.message); return; }
+    toast((decision === 'approve' ? 'อนุมัติ ' : 'ปฏิเสธ ') + id + ' แล้ว แจ้งผู้ส่งเรียบร้อย');
+    await openDetail(id);
+  } catch (e) { overlay(false); if (!handleErr(e)) toast('ผิดพลาด: ' + (e.message || e)); }
+}
+
+async function openResubmit(id) {
+  overlay(true, 'กำลังโหลดข้อมูลเดิม...');
+  let r;
+  try { r = await api('getDocument', { docId: id }); } catch (e) { overlay(false); if (handleErr(e)) return; r = { ok: false, message: e.message || String(e) }; }
+  overlay(false);
+  if (!r.ok) { toast(r.message); showHome(); return; }
+  const d = r.doc;
+  if (d.userId !== profile.userId) { toast('แก้ไขได้เฉพาะเอกสารของตัวเอง'); renderDetail(d, r.isManager); return; }
+  const prefill = {};
+  d.fields.forEach(x => { prefill[x.key] = x.value; });
+  refDoc = d.docId;
+  showForm(d.type, prefill);
+}
+
+overlay(true, 'กำลังโหลด...');
+window.addEventListener('load', main);
+</script>
+</body>
+</html>
