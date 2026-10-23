@@ -4,18 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ระบบส่งงาน</title>
+<link rel="preconnect" href="https://static.line-scdn.net" crossorigin>
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
 :root{--bg:#F4F6F8;--card:#FFFFFF;--text:#1E2329;--muted:#6B7280;--line:#E5E7EB;--primary:#06C755;--danger:#C0392B;--warn:#B9770E;--radius:14px}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{font-family:'Noto Sans Thai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px;-webkit-tap-highlight-color:transparent}
+html{height:100%;background:var(--bg)}
+body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;font-family:'Noto Sans Thai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px;-webkit-tap-highlight-color:transparent}
 header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px}
 header h1{font-size:17px;font-weight:700;flex:1;cursor:pointer}
 header .user{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
 header img{width:30px;height:30px;border-radius:50%;background:var(--line)}
-main{padding:16px;max-width:560px;margin:0 auto;padding-bottom:40px}
+main{flex:1;width:100%;padding:16px;max-width:560px;margin:0 auto;padding-bottom:calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+main > *{flex-shrink:0}
+.fill{flex:1;display:flex;flex-direction:column}
+.fill .result{flex:1;display:flex;flex-direction:column;justify-content:center}
+.fill .actions{margin-top:auto;padding-top:12px}
 .card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:12px}
 .card.warn{background:#FFF7E6;border:1px solid #F5D38C;color:#7A4E00}
 .card.err{background:#FDECEA;border:1px solid #F5B5AE;color:#8A1C10}
@@ -103,8 +111,9 @@ const MAX_DOCS = 5;
 const MAX_DOC_MB = 8;
 
 let FORMS = {};
-let MANAGER_SET = false;
+let MANAGER_SET = null;
 let profile = null;
+let onHome = false;
 let idToken = '';
 let current = null;
 let images = [];
@@ -133,7 +142,9 @@ async function api(action, data) {
     body: JSON.stringify(Object.assign({ action, idToken }, data || {}))
   });
   if (!res.ok) throw new Error('API ' + res.status);
-  const r = await res.json();
+  const text = await res.text();
+  let r;
+  try { r = JSON.parse(text); } catch (x) { throw new Error('API_URL ไม่ได้ตอบเป็น JSON (เช็กว่า Deploy เป็น Anyone และเป็นเวอร์ชันล่าสุด)'); }
   if (r && r.error === 'TOKEN_INVALID') throw new Error('TOKEN_INVALID');
   return r;
 }
@@ -152,9 +163,34 @@ function openExternal(url) {
   else window.open(url, '_blank');
 }
 function scrollTop() { window.scrollTo(0, 0); }
+function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+function load(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+function loadCachedConfig() {
+  try {
+    const c = JSON.parse(load('sg_cfg') || 'null');
+    if (c && c.forms && Object.keys(c.forms).length) { FORMS = c.forms; MANAGER_SET = c.managerSet; return true; }
+  } catch (e) {}
+  return false;
+}
 function handleErr(e) {
   const m = e && (e.message || String(e));
   if (m && m.indexOf('TOKEN_INVALID') >= 0) {
+    let tries = 0;
+    try { tries = Number(sessionStorage.getItem('relogin') || 0); } catch (x) {}
+    if (tries >= 1) {
+      try { sessionStorage.removeItem('relogin'); } catch (x) {}
+      overlay(false);
+      $('#screen').innerHTML = `<div class="card err">
+        <b>เข้าสู่ระบบ LINE ได้ แต่เซิร์ฟเวอร์ตรวจสอบตัวตนไม่ผ่าน</b><br><br>
+        <span style="font-size:14px">ให้แอดมินเช็ก:<br>
+        1. <code>LOGIN_CHANNEL_ID</code> ใน Script Properties ต้องเป็น Channel ID ของ <b>LINE Login channel</b> (ไม่ใช่ Messaging API)<br>
+        2. Apps Script ถูก Deploy เป็น New version หลังวางโค้ดล่าสุด<br>
+        3. ดูชีต Log แถว <code>token_error</code></span>
+        <button class="btn ghost" onclick="try{sessionStorage.clear()}catch(x){};try{liff.logout()}catch(x){};location.reload()">ลองใหม่</button>
+      </div>`;
+      return true;
+    }
+    try { sessionStorage.setItem('relogin', String(tries + 1)); } catch (x) {}
     overlay(true, 'กำลังเข้าสู่ระบบใหม่...');
     try { liff.logout(); } catch (x) {}
     liff.login({ redirectUri: location.href });
@@ -174,25 +210,49 @@ async function main() {
     $('#screen').innerHTML = '<div class="card warn">ยังไม่ได้ตั้ง Environment Variables LIFF_ID / API_URL ใน Vercel (ตั้งแล้วต้อง Redeploy)</div>';
     return;
   }
+  try { fetch(API_URL, { mode: 'no-cors', cache: 'no-store' }).catch(() => {}); } catch (e) {}
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
     idToken = liff.getIDToken() || '';
     if (!idToken) { try { liff.logout(); } catch (x) {} liff.login({ redirectUri: location.href }); return; }
-    const [cfg, me] = await Promise.all([api('config'), api('whoAmI')]);
-    FORMS = cfg.forms || {};
-    MANAGER_SET = !!cfg.managerSet;
-    profile = me.user;
+    const cfgReq = api('config');
+    const meReq = api('whoAmI');
+    const dec = liff.getDecodedIDToken() || {};
+    profile = { userId: dec.sub || '', displayName: dec.name || '', pictureUrl: dec.picture || '', isManager: false, verified: false };
+    const hasCache = loadCachedConfig();
+    const q = queryFromLocation();
+    const needServer = !hasCache || q.view || q.resubmit || q.page;
+    if (!needServer) {
+      $('#who').textContent = profile.displayName;
+      if (profile.pictureUrl) $('#avatar').src = profile.pictureUrl;
+      showHome();
+      overlay(false);
+    }
+    cfgReq.then(cfg => {
+      if (!cfg || !cfg.forms) return;
+      FORMS = cfg.forms;
+      MANAGER_SET = !!cfg.managerSet;
+      store('sg_cfg', JSON.stringify({ forms: FORMS, managerSet: MANAGER_SET }));
+      if (onHome) showHome();
+    }).catch(() => {});
+    const me = await meReq;
+    profile = Object.assign({}, me.user, { verified: true });
+    try { sessionStorage.removeItem('relogin'); } catch (x) {}
+    $('#who').textContent = profile.displayName || '';
+    if (profile.pictureUrl) $('#avatar').src = profile.pictureUrl;
+    if (needServer) {
+      if (!hasCache) { const cfg = await cfgReq; FORMS = cfg.forms || {}; MANAGER_SET = !!cfg.managerSet; }
+      await route(q);
+      overlay(false);
+    } else if (onHome) {
+      showHome();
+    }
   } catch (e) {
     if (handleErr(e)) return;
     overlay(false);
     $('#screen').innerHTML = '<div class="card err">เริ่มระบบไม่สำเร็จ: ' + esc(e.message || e) + '</div>';
-    return;
   }
-  $('#who').textContent = profile.displayName || '';
-  if (profile.pictureUrl) $('#avatar').src = profile.pictureUrl;
-  await route(queryFromLocation());
-  overlay(false);
 }
 
 async function route(q) {
@@ -208,7 +268,7 @@ async function route(q) {
 }
 
 function showHome() {
-  current = null; images = []; docs = []; refDoc = '';
+  current = null; images = []; docs = []; refDoc = ''; onHome = true;
   const items = Object.keys(FORMS).map(k => {
     const f = FORMS[k];
     return `<div class="menu-item" style="--c:${f.color}" onclick="showForm('${k}')">
@@ -218,7 +278,7 @@ function showHome() {
     </div>`;
   }).join('');
   $('#screen').innerHTML = `
-    ${MANAGER_SET || profile.isManager ? '' : '<div class="card warn">⚠️ ยังไม่ได้ตั้ง Manager ผู้อนุมัติ ส่งงานได้แต่จะยังไม่มีการแจ้งเตือนไปหาผู้อนุมัติ</div>'}
+    ${MANAGER_SET === false && !profile.isManager ? '<div class="card warn">⚠️ ยังไม่ได้ตั้ง Manager ผู้อนุมัติ ส่งงานได้แต่จะยังไม่มีการแจ้งเตือนไปหาผู้อนุมัติ</div>' : ''}
     <div class="section-title" style="margin-top:4px">เลือกประเภทฟอร์มที่ต้องการส่ง</div>
     <div class="menu">${items}</div>
     <div class="section-title">เมนูอื่น</div>
@@ -231,6 +291,7 @@ function showHome() {
 }
 
 function showManagerSetup() {
+  onHome = false;
   $('#screen').innerHTML = `
     <div class="topbar"><button class="back" onclick="showHome()">‹ กลับ</button></div>
     <div class="title" style="margin-bottom:12px">ตั้งค่าผู้อนุมัติ</div>
@@ -265,7 +326,7 @@ function fieldHtml(f, val) {
 }
 
 function showForm(type, prefill) {
-  current = type; images = []; docs = [];
+  current = type; images = []; docs = []; onHome = false;
   const f = FORMS[type];
   const vals = Object.assign({}, prefill || {});
   if (!prefill && !vals[f.fields[0].key]) vals[f.fields[0].key] = profile.displayName || '';
@@ -381,16 +442,21 @@ async function submit() {
 }
 
 function showResult(docId, notified) {
+  onHome = false;
   $('#screen').innerHTML = `
-    <div class="card result">
-      <div class="big">✅</div>
-      <h2>ส่งงานเรียบร้อย</h2>
-      <div class="id">${esc(docId)}</div>
-      <p>${notified ? 'ระบบแจ้งเตือน Manager แล้ว ผลการอนุมัติจะส่งมาทาง LINE ของคุณ' : 'บันทึกข้อมูลแล้ว แต่ยังไม่ได้ตั้ง Manager จึงยังไม่มีการแจ้งเตือน'}</p>
-    </div>
-    <button class="btn ghost" onclick="openDetail('${esc(docId)}')">ดูรายละเอียด</button>
-    <button class="btn ghost" onclick="showHome()">ส่งงานอื่นต่อ</button>
-    <button class="btn primary" onclick="closeApp()">ปิดหน้าต่าง</button>`;
+    <div class="fill">
+      <div class="card result">
+        <div class="big">✅</div>
+        <h2>ส่งงานเรียบร้อย</h2>
+        <div class="id">${esc(docId)}</div>
+        <p>${notified ? 'ระบบแจ้งเตือน Manager แล้ว ผลการอนุมัติจะส่งมาทาง LINE ของคุณ' : 'บันทึกข้อมูลแล้ว แต่ยังไม่ได้ตั้ง Manager จึงยังไม่มีการแจ้งเตือน'}</p>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" onclick="openDetail('${esc(docId)}')">ดูรายละเอียด</button>
+        <button class="btn ghost" onclick="showHome()">ส่งงานอื่นต่อ</button>
+        <button class="btn primary" onclick="closeApp()">ปิดหน้าต่าง</button>
+      </div>
+    </div>`;
   scrollTop();
 }
 function closeApp() {
@@ -410,6 +476,7 @@ function docRow(d) {
   </div>`;
 }
 async function showMine() {
+  onHome = false;
   overlay(true, 'กำลังโหลด...');
   try {
     const r = await api('getMyDocs');
@@ -422,6 +489,7 @@ async function showMine() {
   } catch (e) { overlay(false); if (!handleErr(e)) toast('ผิดพลาด: ' + (e.message || e)); }
 }
 async function showPending() {
+  onHome = false;
   overlay(true, 'กำลังโหลด...');
   try {
     const r = await api('getPendingDocs');
@@ -436,6 +504,7 @@ async function showPending() {
   } catch (e) { overlay(false); if (!handleErr(e)) toast('ผิดพลาด: ' + (e.message || e)); }
 }
 async function showRecent() {
+  onHome = false;
   overlay(true, 'กำลังโหลด...');
   try {
     const r = await api('getRecentDocs');
@@ -461,6 +530,7 @@ async function openDetail(id) {
   renderDetail(r.doc, r.isManager);
 }
 function renderDetail(d, isManager) {
+  onHome = false;
   const kvs = d.fields.map(x => `<div class="kv"><div class="k">${esc(x.label)}</div><div class="v">${esc(x.value || '-')}</div></div>`).join('');
   const imgs = d.images.length
     ? `<div class="grid">${d.images.map(im => `<div class="thumb" onclick="openExternal('${esc(im.url)}')"><img src="${esc(im.thumb)}" alt="${esc(im.name)}" loading="lazy"></div>`).join('')}</div>`
